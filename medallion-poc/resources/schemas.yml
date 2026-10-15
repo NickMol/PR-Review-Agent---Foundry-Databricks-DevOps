@@ -1,0 +1,16 @@
+resources:
+  schemas:
+    bronze:
+      name: bronze
+      catalog_name: ${var.catalog}
+      comment: "Raw ingestion layer — source data as-is, all strings"
+
+    silver:
+      name: silver
+      catalog_name: ${var.catalog}
+      comment: "Conformed layer — typed columns, CamelCase names, deduped"
+
+    gold:
+      name: gold
+      catalog_name: ${var.catalog}
+      comment: "Aggregated layer — analytics-ready fact tables"

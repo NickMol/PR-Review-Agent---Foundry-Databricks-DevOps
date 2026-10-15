@@ -1,0 +1,202 @@
+trigger:
+  branches:
+    include:
+      - dev
+      - uat
+      - master
+  paths:
+    include:
+      - medallion-poc/**
+
+pr:
+  branches:
+    include:
+      - dev
+      - uat
+      - master
+  paths:
+    include:
+      - medallion-poc/**
+
+variables:
+  - group: databricks-medallion   # DATABRICKS_HOST, DATABRICKS_TOKEN
+  - name: bundleDir
+    value: medallion-poc
+
+stages:
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PR VALIDATION — runs on every PR, validate only, no deploy
+# Build.Reason = 'PullRequest' for PR builds; SourceBranch = refs/pull/N/merge
+# ─────────────────────────────────────────────────────────────────────────────
+  - stage: Validate_PR
+    displayName: "Validate PR"
+    condition: eq(variables['Build.Reason'], 'PullRequest')
+    jobs:
+      - job: Validate
+        displayName: "Validate bundle"
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+
+          - script: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
+              databricks --version
+            displayName: "Install Databricks CLI"
+
+          - script: |
+              # Validate against the target environment of the PR
+              TARGET_BRANCH="$(System.PullRequest.TargetBranch)"
+              case "$TARGET_BRANCH" in
+                refs/heads/dev)    DAB_TARGET=dev    ;;
+                refs/heads/uat)    DAB_TARGET=uat    ;;
+                refs/heads/master) DAB_TARGET=prd    ;;
+                *)                 DAB_TARGET=dev    ;;
+              esac
+              echo "Validating against target: $DAB_TARGET"
+              cd $(bundleDir)
+              databricks bundle validate --target $DAB_TARGET
+            displayName: "Validate bundle"
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DEV — triggers on merge/push to dev (not on PRs)
+# ─────────────────────────────────────────────────────────────────────────────
+  - stage: Deploy_Dev
+    displayName: "Deploy → dev"
+    condition: and(eq(variables['Build.SourceBranch'], 'refs/heads/dev'), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - job: DeployDev
+        displayName: "Validate, deploy, run (dev)"
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+
+          - script: |
+              curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
+              databricks --version
+            displayName: "Install Databricks CLI"
+
+          - script: |
+              cd $(bundleDir)
+              databricks bundle validate --target dev
+            displayName: "Validate bundle (dev)"
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+
+          - script: |
+              cd $(bundleDir)
+              databricks bundle deploy --target dev --auto-approve
+            displayName: "Deploy bundle (dev)"
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+
+          - script: |
+              cd $(bundleDir)
+              databricks bundle run medallion_pipeline --target dev
+            displayName: "Run medallion pipeline (dev)"
+            env:
+              DATABRICKS_HOST: $(DATABRICKS_HOST)
+              DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# UAT — triggers on merge to uat; pauses for environment approval
+# Configure approval: Pipelines → Environments → uat → Approvals and checks
+# ─────────────────────────────────────────────────────────────────────────────
+  - stage: Deploy_UAT
+    displayName: "Deploy → uat"
+    condition: and(eq(variables['Build.SourceBranch'], 'refs/heads/uat'), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - deployment: DeployUAT
+        displayName: "Validate, deploy, run (uat)"
+        pool:
+          vmImage: ubuntu-latest
+        environment: uat
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - script: |
+                    curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
+                    databricks --version
+                  displayName: "Install Databricks CLI"
+
+                - script: |
+                    cd $(bundleDir)
+                    databricks bundle validate --target uat
+                  displayName: "Validate bundle (uat)"
+                  env:
+                    DATABRICKS_HOST: $(DATABRICKS_HOST)
+                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+
+                - script: |
+                    cd $(bundleDir)
+                    databricks bundle deploy --target uat --auto-approve
+                  displayName: "Deploy bundle (uat)"
+                  env:
+                    DATABRICKS_HOST: $(DATABRICKS_HOST)
+                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+
+                - script: |
+                    cd $(bundleDir)
+                    databricks bundle run medallion_pipeline --target uat
+                  displayName: "Run medallion pipeline (uat)"
+                  env:
+                    DATABRICKS_HOST: $(DATABRICKS_HOST)
+                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PRD — triggers on merge to master; pauses for environment approval
+# Configure approval: Pipelines → Environments → prd → Approvals and checks
+# ─────────────────────────────────────────────────────────────────────────────
+  - stage: Deploy_PRD
+    displayName: "Deploy → prd"
+    condition: and(eq(variables['Build.SourceBranch'], 'refs/heads/master'), ne(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - deployment: DeployPRD
+        displayName: "Validate, deploy, run (prd)"
+        pool:
+          vmImage: ubuntu-latest
+        environment: prd
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - checkout: self
+
+                - script: |
+                    curl -fsSL https://raw.githubusercontent.com/databricks/setup-cli/main/install.sh | sudo sh
+                    databricks --version
+                  displayName: "Install Databricks CLI"
+
+                - script: |
+                    cd $(bundleDir)
+                    databricks bundle validate --target prd
+                  displayName: "Validate bundle (prd)"
+                  env:
+                    DATABRICKS_HOST: $(DATABRICKS_HOST)
+                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+
+                - script: |
+                    cd $(bundleDir)
+                    databricks bundle deploy --target prd --auto-approve
+                  displayName: "Deploy bundle (prd)"
+                  env:
+                    DATABRICKS_HOST: $(DATABRICKS_HOST)
+                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)
+
+                - script: |
+                    cd $(bundleDir)
+                    databricks bundle run medallion_pipeline --target prd
+                  displayName: "Run medallion pipeline (prd)"
+                  env:
+                    DATABRICKS_HOST: $(DATABRICKS_HOST)
+                    DATABRICKS_TOKEN: $(DATABRICKS_TOKEN)

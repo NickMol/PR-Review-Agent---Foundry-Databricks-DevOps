@@ -1,0 +1,11 @@
+order_id,region,country,amount,quantity,order_date
+1001,EMEA,Netherlands,1250.00,5,2024-10-01
+1002,EMEA,Germany,875.50,3,2024-10-02
+1003,NA,United States,3200.00,12,2024-10-02
+1004,APAC,Australia,640.75,2,2024-10-03
+1005,NA,Canada,980.00,4,2024-10-04
+1006,EMEA,Belgium,420.00,1,2024-10-05
+1007,APAC,Japan,2100.00,8,2024-10-06
+1008,EMEA,Netherlands,560.00,2,2024-10-07
+1009,NA,United States,1750.00,6,2024-10-08
+1010,APAC,Singapore,310.50,1,2024-10-09

@@ -1,0 +1,8 @@
+resources:
+  volumes:
+    orders_landing:
+      catalog_name: ${var.catalog}
+      schema_name: bronze        # depends on bronze schema — deploy creates schema first
+      name: orders_landing
+      volume_type: MANAGED
+      comment: "Landing zone — drop CSV files here to trigger ingestion"

@@ -1,0 +1,25 @@
+bundle:
+  name: medallion-poc
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: "Unity Catalog catalog name — one per environment"
+    default: dev
+
+targets:
+  dev:
+    default: true
+    variables:
+      catalog: dev
+
+  uat:
+    variables:
+      catalog: uat
+
+  prd:
+    mode: production           # enforces run-as service principal
+    variables:
+      catalog: prd

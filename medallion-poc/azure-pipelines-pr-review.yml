@@ -1,0 +1,73 @@
+trigger: none
+
+pr:
+  branches:
+    include:
+      - dev
+      - uat
+      - master
+  paths:
+    include:
+      - medallion-poc/**
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+  - group: ai-foundry-config    # AI_FOUNDRY_ENDPOINT, AI_FOUNDRY_AGENT_NAME
+
+steps:
+  - script: pip install "azure-ai-projects>=2.1.0" azure-identity
+    displayName: Install dependencies
+
+  - task: AzureCLI@2
+    displayName: 'Invoke Azure AI Foundry PR review agent'
+    inputs:
+      azureSubscription: 'azure-devops-serviceconnection'
+      scriptType: bash
+      scriptLocation: inlineScript
+      addSpnToEnvironment: false
+      inlineScript: |
+        python3 - <<'PY'
+        import os, sys
+        from azure.identity import DefaultAzureCredential
+        from azure.ai.projects import AIProjectClient
+
+        endpoint   = os.environ["AI_FOUNDRY_ENDPOINT"]
+        agent_name = os.environ["AI_FOUNDRY_AGENT_NAME"]
+        pr_id      = os.environ["PR_ID"]
+        repo       = os.environ["REPO_NAME"]
+        project    = os.environ["PROJECT_NAME"]
+        org_url    = os.environ["ORG_URL"].rstrip("/")
+
+        prompt = (
+            f"Please review pull request #{pr_id} in repository '{repo}' "
+            f"under project '{project}' at {org_url}. "
+            f"Use the pull request ID {pr_id} with your ADO tools to get the list of changed files and their diffs — "
+            "do not try to read files by branch name. "
+            "Only review and comment on files that live under the 'resources/' or 'src/' folders. "
+            "Ignore all other files such as configuration, pipeline YAML, docs, or bundle files."
+        )
+
+        print(f"Invoking PR review agent for PR #{pr_id}...")
+        with AIProjectClient(endpoint=endpoint, credential=DefaultAzureCredential(), allow_preview=True) as client:
+            openai_client = client.get_openai_client(agent_name=agent_name)
+            conversation  = openai_client.conversations.create()
+            response      = openai_client.responses.create(
+                conversation=conversation.id,
+                input=[{"role": "user", "content": prompt}],
+            )
+
+        if any(word in response.output_text.lower() for word in ("comment", "posted", "added", "reviewed")):
+            print("✓ Agent posted review on the PR.")
+        else:
+            print("⚠ Agent completed but no confirmation of PR comment detected — check the PR manually.")
+        PY
+    env:
+      AI_FOUNDRY_ENDPOINT: $(AI_FOUNDRY_ENDPOINT)
+      AI_FOUNDRY_AGENT_NAME: $(AI_FOUNDRY_AGENT_NAME)
+      PR_ID:               $(System.PullRequest.PullRequestId)
+      REPO_NAME:           $(Build.Repository.Name)
+      PROJECT_NAME:        $(System.TeamProject)
+      ORG_URL:             $(System.CollectionUri)
+      TARGET_BRANCH:       $(System.PullRequest.TargetBranch)

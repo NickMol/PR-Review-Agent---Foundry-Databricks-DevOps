@@ -1,0 +1,32 @@
+resources:
+  pipelines:
+    medallion_pipeline:
+      name: "medallion-poc-${bundle.target}"
+
+      # Default catalog for this pipeline. All fully-qualified names in SQL
+      # use ${catalog} (pipeline config param below), which resolves to the
+      # same value. The target (default schema) is set to bronze; Silver and
+      # Gold use fully-qualified 3-part names and are written to their own schemas.
+      catalog: ${var.catalog}
+      target: bronze
+
+      # Pick up all SQL files in the transformations folder.
+      # root_path is relative to this resources/ file → ../src/...
+      libraries:
+        - glob:
+            include: ../src/pipelines/medallion/transformations/**
+
+      root_path: ../src/pipelines/medallion
+
+      serverless: true
+      continuous: false     # triggered mode — run on demand or via Azure DevOps pipeline
+
+      # Pipeline configuration params — accessible in SQL as ${catalog}
+      configuration:
+        catalog: ${var.catalog}
+
+      channel: current
+
+      permissions:
+        - level: CAN_VIEW
+          group_name: users
