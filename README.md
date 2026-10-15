@@ -1,4 +1,4 @@
-Repository containing the code for a PR review agent. It includes: 
+# Repository containing the code for a PR review agent. It includes the folders: 
 - agent: folder with the yml agent containing the instructions and tools
 - medallion-poc:Contains the Databricks Declarative Automation Bundle with the medallion architecture, as well as the yml pipelines for deployment to dev, uat, prd and the AI pipeline review
 - Docs: info about the project architecture etc.
@@ -102,14 +102,17 @@ Example: `foundry-poc-nm/projects/devops-process`
 If you're unsure of the exact name, look it up via the Object ID:
 
 1. Foundry portal → your project → **Resource Management** → **Identity**
+<img width="744" height="359" alt="image" src="https://github.com/user-attachments/assets/900473ea-bcd6-4d4b-98ff-a6427abbe13e" />
 2. Copy the **Object ID**
 3. Paste it into the Azure Portal top search bar — it will resolve to the service principal name in Entra ID
+<img width="744" height="189" alt="image" src="https://github.com/user-attachments/assets/efde79ff-cb3e-4993-8639-5638cb2e315e" />
 
 **Adding the identity to Azure DevOps**
 
 1. ADO → **Organization settings** → **Users** → **Add users**
 2. Search for the identity name (e.g. `foundry-poc-nm/projects/devops-process`) and add it to the organization
 3. In your ADO project → **Project settings** → **Permissions** → add the identity with access to the project
+<img width="744" height="202" alt="image" src="https://github.com/user-attachments/assets/c89835c4-72b7-433d-8204-464e412566c5" />
 
 **Setting repository permissions**
 
@@ -119,10 +122,13 @@ If you're unsure of the exact name, look it up via the Object ID:
 4. Set **Delete repository** → **Deny**
 5. Consider adding further guardrails (e.g. deny force push, deny manage permissions) depending on your security requirements
 
+<img width="744" height="307" alt="image" src="https://github.com/user-attachments/assets/fc78b50d-f541-48c1-ae6f-e4b8c71ce1b3" />
+
+
 **Verification tip**
 
 Open the agent playground in the Foundry portal and ask: *"Can you list the repos in Azure DevOps using your tool?"* — if it responds with repo names, the identity and permissions are set up correctly.
-
+<img width="1488" height="842" alt="image" src="https://github.com/user-attachments/assets/4c1f7828-0036-440c-a83d-5b0bafd8019d" />
 
 ### 2.7 Note the Foundry endpoint
 
@@ -213,11 +219,14 @@ The PR review pipeline must run automatically whenever a PR is opened. This is d
 5. Save
 6. Repeat for any other branches that require the review (e.g. `uat`, `master`)
 
+<img width="744" height="278" alt="image" src="https://github.com/user-attachments/assets/03e6161e-88f7-49aa-a770-b69124e40929" />
+
+
 With this in place, every time a PR is opened or updated targeting that branch, ADO will automatically run the pipeline. The pipeline then prompts the AI agent with the PR number, repository, and project — all parameterised so it works across repos without code changes.
 
 ### 3.5 Create the service connection
 
-This allows the PR review pipeline to authenticate to Azure AI Foundry.
+This allows the PR review pipeline to authenticate to Azure AI Foundry so it can let the agent know to review a PR.
 
 1. **Project settings** (bottom-left) → **Service connections** → **New service connection**
 2. Type: **Azure Resource Manager** → **Workload identity federation (automatic)**
